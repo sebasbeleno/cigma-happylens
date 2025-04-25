@@ -4,7 +4,7 @@
 
 /**
  * Calculate a happiness score from facial landmarks
- * This is a simplified implementation and could be enhanced with more complex analysis
+ * Enhanced implementation with improved accuracy and NaN prevention
  */
 export const calculateHappinessScore = (landmarks: any[], imageWidth: number, imageHeight: number): number => {
   if (!landmarks || landmarks.length === 0) return 0;
@@ -21,17 +21,27 @@ export const calculateHappinessScore = (landmarks: any[], imageWidth: number, im
        landmark.name.toLowerCase().includes('eyebrow'))
     );
 
+    // Check for sufficient landmarks for analysis
     if (mouthLandmarks.length < 10 || eyeLandmarks.length < 10) {
-      // Not enough landmarks detected for proper analysis
+      console.log('Insufficient landmarks for happiness analysis:', 
+                 `mouth: ${mouthLandmarks.length}, eyes: ${eyeLandmarks.length}`);
       return 0;
     }
 
-    // Calculate mouth curvature (smile detection)
+    // Calculate smile score with improved algorithm
     const smileScore = calculateSmileScore(mouthLandmarks, eyeLandmarks, imageWidth, imageHeight);
     
-    // Normalize to 0-100 range with some adjustments to make it more natural
-    // This will need tuning based on testing
-    return Math.min(Math.max(Math.round(smileScore * 100), 0), 100);
+    // Guard against NaN values
+    if (isNaN(smileScore)) {
+      console.warn('Smile score calculation produced NaN, defaulting to 0');
+      return 0;
+    }
+    
+    // Apply a sigmoid-like transformation to make the score distribution more natural
+    // This creates a more gradual curve in the middle range and plateaus at extremes
+    const adjustedScore = 100 / (1 + Math.exp(-6 * (smileScore - 0.5)));
+    
+    return Math.round(adjustedScore);
   } catch (error) {
     console.error('Error calculating happiness score:', error);
     return 0;
@@ -40,37 +50,61 @@ export const calculateHappinessScore = (landmarks: any[], imageWidth: number, im
 
 /**
  * Calculate a smile score based on mouth curvature and eye shape
+ * Enhanced algorithm with improved accuracy and NaN prevention
  */
 const calculateSmileScore = (
   mouthLandmarks: any[], 
   eyeLandmarks: any[],
   imageWidth: number,
-  imageHeight: number
+  _imageHeight: number // Using underscore to indicate unused parameter
 ): number => {
-  // This is a simplified algorithm that can be improved
-  
   // Find mouth corners and center points
   const mouthPoints = organizePoints(mouthLandmarks);
   const eyePoints = organizePoints(eyeLandmarks);
   
   if (!mouthPoints || !eyePoints) return 0;
   
-  // Calculate smile curvature - how much the mouth corners are raised relative to the center
-  const { leftCorner, rightCorner, topCenter, bottomCenter } = mouthPoints;
+  // Extract key points from the mouth
+  const { leftCorner, rightCorner, topCenter } = mouthPoints;
   
-  // A smiling mouth typically has corners higher than the center
-  const mouthCurvature = calculateCurvature(leftCorner, topCenter, rightCorner);
-  
-  // Eye narrowing is associated with genuine smiles (Duchenne marker)
-  const eyeNarrowing = calculateEyeNarrowing(eyePoints);
-  
-  // Combine signals with appropriate weights
-  // Mouth curvature is the primary signal (70%)
-  // Eye narrowing is a secondary signal (30%)
-  const rawScore = (mouthCurvature * 0.7) + (eyeNarrowing * 0.3);
-  
-  // Apply some non-linear adjustments to make the score more intuitive
-  return Math.pow(rawScore, 1.5);
+  // Calculate key metrics with NaN prevention
+  try {
+    // Calculate mouth curvature - how much the mouth corners are raised relative to the center
+    let mouthCurvature = calculateCurvature(leftCorner, topCenter, rightCorner);
+    
+    // Guard against invalid values
+    if (isNaN(mouthCurvature) || !isFinite(mouthCurvature)) {
+      console.warn('Invalid mouth curvature detected, defaulting to 0');
+      mouthCurvature = 0;
+    }
+    
+    // Normalize curvature to a reasonable range (typically between -0.5 and 0.5)
+    mouthCurvature = Math.max(-0.5, Math.min(0.5, mouthCurvature));
+    
+    // Offset and scale to convert to a 0-1 range
+    // -0.5 (frown) maps to 0, 0.5 (smile) maps to 1
+    mouthCurvature = (mouthCurvature + 0.5) / 1.0;
+    
+    // Calculate eye narrowing (Duchenne marker for genuine smiles)
+    const eyeNarrowing = calculateEyeNarrowing(eyePoints);
+    
+    // Calculate mouth width ratio (smiles tend to be wider)
+    const mouthWidth = Math.hypot(rightCorner.x - leftCorner.x, rightCorner.y - leftCorner.y) / imageWidth;
+    const normalizedMouthWidth = Math.min(Math.max(mouthWidth * 2, 0), 1); // Scale appropriately
+    
+    // Combine signals with appropriate weights
+    // Mouth curvature is the primary signal (60%)
+    // Eye narrowing is a secondary signal (25%)
+    // Mouth width is a tertiary signal (15%)
+    const rawScore = (mouthCurvature * 0.6) + (eyeNarrowing * 0.25) + (normalizedMouthWidth * 0.15);
+    
+    // Apply gentle non-linear adjustment to emphasize differences in the middle range
+    // and prevent extreme values from dominating
+    return Math.max(0, Math.min(1, Math.pow(rawScore, 1.2)));
+  } catch (error) {
+    console.error('Error in smile score calculation:', error);
+    return 0;
+  }
 };
 
 /**
@@ -119,31 +153,72 @@ const organizePoints = (landmarks: any[]) => {
  * Calculate curvature of three points
  * Positive values indicate an upward curve (smile)
  * Negative values indicate a downward curve (frown)
+ * Enhanced with improved accuracy and NaN prevention
  */
 const calculateCurvature = (p1: any, p2: any, p3: any): number => {
-  // Convert to 2D points for calculation
-  const x1 = p1.x, y1 = p1.y;
-  const x2 = p2.x, y2 = p2.y;
-  const x3 = p3.x, y3 = p3.y;
-  
-  // Calculate a simple approximation of curvature
-  // For smile detection, we care about whether the middle point is higher or lower than the average of endpoints
-  const midY = (y1 + y3) / 2;
-  const diff = midY - y2;
-  
-  // Normalize and reverse since y increases downward in image coordinates
-  return diff / Math.sqrt((x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1));
+  try {
+    // Convert to 2D points for calculation
+    const x1 = p1.x, y1 = p1.y;
+    const y2 = p2.y;
+    const x3 = p3.x, y3 = p3.y;
+    
+    // Calculate a simple approximation of curvature
+    // For smile detection, we care about whether the middle point is higher or lower than the average of endpoints
+    const midY = (y1 + y3) / 2;
+    const diff = midY - y2;
+    
+    // Calculate distance between end points (for normalization)
+    const distance = Math.sqrt((x3 - x1) * (x3 - x1) + (y3 - y1) * (y3 - y1));
+    
+    // Guard against division by zero or very small distances
+    if (distance < 0.001) {
+      return 0;
+    }
+    
+    // Normalize and reverse since y increases downward in image coordinates
+    // This gives positive values for smiles and negative for frowns
+    return diff / distance;
+  } catch (error) {
+    console.error('Error calculating curvature:', error);
+    return 0;
+  }
 };
 
 /**
  * Calculate eye narrowing (Duchenne marker for genuine smiles)
+ * Enhanced implementation that analyzes actual eye shape
  */
 const calculateEyeNarrowing = (eyePoints: any): number => {
-  // In a real implementation, you'd measure eye height/width ratio
-  // and check for changes from a neutral expression
-  
-  // This is a placeholder implementation
-  return 0.5; // Default middle value
+  try {
+    if (!eyePoints || !eyePoints.leftCorner || !eyePoints.rightCorner || 
+        !eyePoints.topCenter || !eyePoints.bottomCenter) {
+      return 0.5; // Default middle value if points are insufficient
+    }
+    
+    // Calculate eye aspect ratio (height/width)
+    // For genuine smiles, eyes narrow, resulting in a smaller ratio
+    const eyeHeight = Math.abs(eyePoints.topCenter.y - eyePoints.bottomCenter.y);
+    const eyeWidth = Math.abs(eyePoints.rightCorner.x - eyePoints.leftCorner.x);
+    
+    // Guard against division by zero
+    if (eyeWidth < 0.001) {
+      return 0.5;
+    }
+    
+    const aspectRatio = eyeHeight / eyeWidth;
+    
+    // Normalize to 0-1 range, with typical values around 0.3-0.7
+    // Lower values (narrower eyes) indicate genuine smiles
+    // We invert the scale so higher values indicate more happiness
+    
+    // Typical range for eye aspect ratio: 0.2 (narrow) to 0.5 (wide)
+    const normalizedRatio = 1 - Math.min(Math.max((aspectRatio - 0.2) / 0.3, 0), 1);
+    
+    return normalizedRatio;
+  } catch (error) {
+    console.error('Error calculating eye narrowing:', error);
+    return 0.5; // Default to middle value on error
+  }
 };
 
 /**
