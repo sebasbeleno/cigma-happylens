@@ -1,4 +1,3 @@
-import React from 'react';
 import './HappinessMeter.css';
 
 interface HappinessMeterProps {
