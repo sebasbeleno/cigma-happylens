@@ -31,10 +31,7 @@ const Camera = ({ onFrame, showFaceLandmarks = false, isActive }: CameraProps) =
           video: { 
             facingMode: 'user',
             width: { ideal: 640 },
-            height: { ideal: 480 },
-            frameRate: { ideal: 30 },
-            // Request better quality for face detection
-            aspectRatio: { ideal: 1.33333 } // 4:3 ratio
+            height: { ideal: 480 }
           },
           audio: false,
         });
@@ -72,11 +69,53 @@ const Camera = ({ onFrame, showFaceLandmarks = false, isActive }: CameraProps) =
 
   useEffect(() => {
     const videoElement = videoRef.current;
-    if (!videoElement || !isActive || isLoading) return;
+    const canvasElement = canvasRef.current;
+    
+    if (!videoElement || !isActive || isLoading || !canvasElement) return;
 
+    // Update canvas dimensions to match video and container
+    const updateCanvasDimensions = () => {
+      if (videoElement.readyState >= 2) {
+        const containerWidth = videoElement.offsetWidth;
+        const containerHeight = videoElement.offsetHeight;
+        const videoWidth = videoElement.videoWidth;
+        const videoHeight = videoElement.videoHeight;
+        
+        // Set canvas display size to match the container
+        canvasElement.style.width = `${containerWidth}px`;
+        canvasElement.style.height = `${containerHeight}px`;
+        
+        // Set canvas drawing dimensions to match video intrinsic size
+        canvasElement.width = videoWidth;
+        canvasElement.height = videoHeight;
+        
+        // Scale canvas context to compensate for the video-to-display ratio
+        const ctx = canvasElement.getContext('2d');
+        if (ctx) {
+          const scaleX = containerWidth / videoWidth;
+          const scaleY = containerHeight / videoHeight;
+          ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+        }
+      }
+    };
+
+    // Set initial dimensions
+    updateCanvasDimensions();
+    
+    // Update dimensions when video metadata loads or size changes
+    videoElement.addEventListener('loadedmetadata', updateCanvasDimensions);
+    window.addEventListener('resize', updateCanvasDimensions);
+    
+    // Use ResizeObserver to monitor video element size changes
+    const resizeObserver = new ResizeObserver(() => {
+      updateCanvasDimensions();
+    });
+    resizeObserver.observe(videoElement);
+    
     const processFrame = () => {
       if (videoElement.readyState === 4) {
         onFrame(videoElement);
+        // Don't update dimensions on every frame to prevent flickering
       }
       animationFrameId = requestAnimationFrame(processFrame);
     };
@@ -85,6 +124,9 @@ const Camera = ({ onFrame, showFaceLandmarks = false, isActive }: CameraProps) =
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      videoElement.removeEventListener('loadedmetadata', updateCanvasDimensions);
+      window.removeEventListener('resize', updateCanvasDimensions);
+      resizeObserver.disconnect();
     };
   }, [onFrame, isActive, isLoading]);
 
@@ -112,6 +154,7 @@ const Camera = ({ onFrame, showFaceLandmarks = false, isActive }: CameraProps) =
       />
       {showFaceLandmarks && (
         <canvas 
+          ref={canvasRef}
           className="landmarks-overlay"
           style={{
             position: 'absolute',
@@ -120,6 +163,7 @@ const Camera = ({ onFrame, showFaceLandmarks = false, isActive }: CameraProps) =
             width: '100%',
             height: '100%',
             pointerEvents: 'none',
+            zIndex: 10
           }}
         />
       )}
