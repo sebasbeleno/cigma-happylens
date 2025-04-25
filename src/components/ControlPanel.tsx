@@ -19,13 +19,13 @@ const ControlPanel = ({
       <button 
         className={`control-button ${isCameraActive ? 'active' : ''}`}
         onClick={onCameraToggle}
-        aria-label={isCameraActive ? 'Turn off camera' : 'Turn on camera'}
+        aria-label={isCameraActive ? 'Apagar cámara' : 'Encender cámara'}
       >
         <span className="control-icon">
           {isCameraActive ? '📷' : '🚫'}
         </span>
         <span className="control-label">
-          {isCameraActive ? 'Turn Off Camera' : 'Turn On Camera'}
+          {isCameraActive ? 'Apagar Cámara' : 'Encender Cámara'}
         </span>
       </button>
       
@@ -33,13 +33,13 @@ const ControlPanel = ({
         className={`control-button ${showLandmarks ? 'active' : ''}`}
         onClick={onLandmarksToggle}
         disabled={!isCameraActive}
-        aria-label={showLandmarks ? 'Hide face landmarks' : 'Show face landmarks'}
+        aria-label={showLandmarks ? 'Ocultar puntos faciales' : 'Mostrar puntos faciales'}
       >
         <span className="control-icon">
           {showLandmarks ? '👁️' : '👁️‍🗨️'}
         </span>
         <span className="control-label">
-          {showLandmarks ? 'Hide Landmarks' : 'Show Landmarks'}
+          {showLandmarks ? 'Ocultar Puntos' : 'Mostrar Puntos'}
         </span>
       </button>
     </div>

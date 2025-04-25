@@ -31,8 +31,8 @@ const HappyLens = () => {
   return (
     <div className="happy-lens-container">
       <header className="happy-lens-header">
-        <h1>HappyLens</h1>
-        <p>Real-time happiness analysis through facial expressions</p>
+        <h1>VisorAlegre</h1>
+        <p>Análisis de felicidad en tiempo real a través de expresiones faciales</p>
       </header>
 
       <div className="happiness-display">
@@ -51,7 +51,7 @@ const HappyLens = () => {
               
               {isModelLoading ? (
                 <div className="loading-message">
-                  <p>Loading face detection model...</p>
+                  <p>Cargando modelo de detección facial...</p>
                 </div>
               ) : (
                 <>
@@ -87,8 +87,8 @@ const HappyLens = () => {
 
       <footer className="happy-lens-footer">
         <p>
-          HappyLens uses TensorFlow.js for facial expression analysis.
-          No data leaves your device - all processing happens locally in your browser.
+          VisorAlegre usa TensorFlow.js para analizar expresiones faciales.
+          Ningún dato sale de tu dispositivo - todo el procesamiento ocurre localmente en tu navegador.
         </p>
       </footer>
     </div>

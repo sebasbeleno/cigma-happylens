@@ -45,7 +45,7 @@ const FaceDetector = ({ children }: FaceDetectorProps) => {
         console.log('Face detection model loaded successfully');
       } catch (error) {
         console.error('Failed to load face detection model:', error);
-        setModelLoadError('Failed to load face detection model. Please try again later.');
+        setModelLoadError('No se pudo cargar el modelo de detección facial. Por favor, inténtalo de nuevo más tarde.');
       } finally {
         setIsModelLoading(false);
       }
