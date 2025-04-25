@@ -93,16 +93,15 @@ const calculateSmileScore = (
     const mouthWidth = Math.hypot(rightCorner.x - leftCorner.x, rightCorner.y - leftCorner.y) / imageWidth;
     const normalizedMouthWidth = Math.min(Math.max(mouthWidth * 2, 0), 1); // Scale appropriately
     
-    // Simplify signal combination for a more playful, less accurate experience
-    // Emphasize mouth curvature even more for a child-friendly app
-    // Mouth curvature is now 70% of the score (kids smile wide!)
-    // Eye narrowing is 20% (cheek raising)
-    // Mouth width is 10% 
-    const rawScore = (mouthCurvature * 0.7) + (eyeNarrowing * 0.2) + (normalizedMouthWidth * 0.1);
+    // Combine signals with appropriate weights
+    // Mouth curvature is the primary signal (60%)
+    // Eye narrowing is a secondary signal (25%)
+    // Mouth width is a tertiary signal (15%)
+    const rawScore = (mouthCurvature * 0.6) + (eyeNarrowing * 0.25) + (normalizedMouthWidth * 0.15);
     
-    // Less precise adjustment - more forgiving, more fun!
-    // This makes it easier to get higher scores (more rewarding for kids)
-    return Math.max(0, Math.min(1, Math.pow(rawScore, 1.0)));
+    // Apply gentle non-linear adjustment to emphasize differences in the middle range
+    // and prevent extreme values from dominating
+    return Math.max(0, Math.min(1, Math.pow(rawScore, 1.2)));
   } catch (error) {
     console.error('Error in smile score calculation:', error);
     return 0;
